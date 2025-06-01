@@ -69,3 +69,98 @@ proc ::fs::get_fmax {} {
    
     return -code ok "Max frequency of design is $fmax MHz"
 }
+
+proc ::fs::get_nets_from_report {args} {
+
+    set error 0
+    set r_high_fanout_nets 0
+
+    while {[llength $args]} {
+        set flag [::fs::lshift args]
+        
+        switch -exact -- $flag {
+            
+            -rhfn -
+            -report_high_fanout_nets {
+                set opt_args [split [::fs::lshift args] " "]
+                set fanout   [lindex $opt_args 0]
+                set pattern  [lindex $opt_args 1]
+                set max_nets [lindex $opt_args 2]
+
+                puts $opt_args
+                 puts $fanout
+                  puts $pattern
+                   puts $max_nets
+                set r_high_fanout_nets 1
+            }
+
+
+
+
+            default { 
+                if {[string match "-*" $flag]} {
+                    puts " ERROR - option '$flag' is not a valid option."
+                    incr error
+                } else {
+                    puts "ERROR - option '$flag' is not a valid option."
+                    incr error
+                }
+            }
+        }
+    }
+
+    if {$error} {
+        return -code error {Oops, something is not correct}
+    }
+    if {$r_high_fanout_nets} {
+        set r [report_high_fanout_nets -return_string -fanout_greater_than $fanout -max_nets $max_nets]
+
+        set ls [split $r \n]
+        set li [lsearch -all $ls "+---*+*"]
+        set table [lrange $ls [expr [lindex $li 1] + 1] [expr [lindex $li end]- 1]]
+        
+        set t [list ]
+        foreach row $table {
+            lappend t [split $row |]
+        }
+        
+        set net_name   [list ]
+        set net_fanout [list ]
+        set net_driver [list ]
+        foreach row $t {
+            lappend net_name   [string trim [lindex $row 1]]
+            lappend net_fanout [string trim [lindex $row 2]]
+            lappend net_driver [string trim [lindex $row 3]]
+        }
+
+        
+        set i -1
+        foreach net $net_name {
+            incr i
+            puts $net
+            puts [string match $pattern $net]
+
+            if {[string match $pattern $net]} {
+                if {[string match RAM* [lindex $net_driver $i]]} {
+                    set_property MAX_FANOUT_MODE MACRO [get_nets $net]
+                    set_property MAX_FANOUT $fanout [get_nets $net]
+                } elseif   {[string match BUFG* [lindex $net_driver $i]]} {
+                    continue
+                } else {
+                    set_property MAX_FANOUT $fanout [get_nets $net]
+                }
+            }
+        }
+
+        return -code ok "Save design before continue"
+    }
+
+
+}
+
+proc ::fs::lshift listVar {
+    upvar 1 $listVar L
+    set r [lindex $L 0]
+    set L [lreplace $L [set L 0] 0]
+    return $r
+}
