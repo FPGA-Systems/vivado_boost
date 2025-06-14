@@ -86,11 +86,7 @@ proc ::fs::get_nets_from_report {args} {
                 set fanout   [lindex $opt_args 0]
                 set pattern  [lindex $opt_args 1]
                 set max_nets [lindex $opt_args 2]
-
-                puts $opt_args
-                 puts $fanout
-                  puts $pattern
-                   puts $max_nets
+                
                 set r_high_fanout_nets 1
             }
 
@@ -113,32 +109,25 @@ proc ::fs::get_nets_from_report {args} {
         return -code error {Oops, something is not correct}
     }
     if {$r_high_fanout_nets} {
-        set r [report_high_fanout_nets -return_string -fanout_greater_than $fanout -max_nets $max_nets]
-
-        set ls [split $r \n]
-        set li [lsearch -all $ls "+---*+*"]
-        set table [lrange $ls [expr [lindex $li 1] + 1] [expr [lindex $li end]- 1]]
         
-        set t [list ]
-        foreach row $table {
-            lappend t [split $row |]
-        }
+        set r [report_high_fanout_nets -return_string -fanout_greater_than $fanout -max_nets $max_nets]
+        set ls [split $r \n]
         
         set net_name   [list ]
         set net_fanout [list ]
         set net_driver [list ]
-        foreach row $t {
-            lappend net_name   [string trim [lindex $row 1]]
-            lappend net_fanout [string trim [lindex $row 2]]
-            lappend net_driver [string trim [lindex $row 3]]
-        }
 
+        foreach l $ls {
+            if { [regexp {\|\s*([^\|\s*]*)\s*\|\s*(\d*)\s*\|\s+?(\w*)\s*\|} $l a g1 g2 g3] } {
+                lappend net_name   $g1
+                lappend net_fanout $g2
+                lappend net_driver $g3
+            }
+        }
         
         set i -1
         foreach net $net_name {
-            incr i
-            puts $net
-            puts [string match $pattern $net]
+            incr i     
 
             if {[string match $pattern $net]} {
                 if {[string match RAM* [lindex $net_driver $i]]} {
@@ -152,7 +141,7 @@ proc ::fs::get_nets_from_report {args} {
             }
         }
 
-        return -code ok "Save design before continue"
+        return -code ok "\[FS::INFO\] ===> Save design before continue"
     }
 
 
@@ -164,3 +153,6 @@ proc ::fs::lshift listVar {
     set L [lreplace $L [set L 0] 0]
     return $r
 }
+
+
+
